@@ -31,16 +31,16 @@
     # efiInstallAsRemovable = true;
     useOSProber = true;
   };
-  boot.loader.grub.extraEntries = ''
-    menuentry "Windows" {
-      insmod part_gpt
-      insmod fat
-      insmod chain
-      set root=(hd2,gpt2)
-      chainloader /boot/EFI/Windows/bootmgfw.efi
-    }
-  '';
-  # boot.loader.grub.extraFiles = ["/boot/EFI/Windows/bootmgfw.efi"];
+  # boot.loader.grub.extraEntries = ''
+  #   menuentry "Windows" {
+  #     insmod part_gpt
+  #     insmod fat
+  #     insmod chain
+  #     set root=(hd2,gpt2)
+  #     chainloader /boot/EFI/Windows/bootmgfw.efi
+  #   }
+  # '';
+  # # boot.loader.grub.extraFiles = ["/boot/EFI/Windows/bootmgfw.efi"];
 
   boot.supportedFilesystems = [ "ntfs" ];
 
@@ -57,6 +57,15 @@
   };
 
   nixpkgs.config.allowUnfree = true;
+
+  virtualisation.docker.enable = true;
+  virtualisation.docker.storageDriver = "btrfs";
+  virtualisation.docker.rootless = {
+    enable = true;
+    setSocketVariable = true;
+  };
+
+
 
   environment.gnome.excludePackages = (with pkgs; [
     gnome-photos
@@ -79,7 +88,7 @@
 
   users.users.bittermann = {
     isNormalUser = true;
-    extraGroups = [ "wheel" ]; # Enable ‘sudo’ for the user.
+    extraGroups = [ "wheel" "docker"]; # Enable ‘sudo’ for the user.
   };
 
   home-manager.users.bittermann = {
@@ -100,12 +109,16 @@
   environment.systemPackages = with pkgs; [
     home-manager
 
+
     base16-schemes
 
     kitty
     helix # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     wget
     git
+
+    corefonts
+    onlyoffice-bin
 
     firefox
     discord
@@ -119,6 +132,20 @@
     # cpp
     clang
     clang-tools
+
+    # rust
+    cargo
+    rustc
+    rust-analyzer
+
+    # yaml
+    yaml-language-server
+
+    # docker
+    docker-compose
+    dockerfile-language-server-nodejs
+    docker-compose-language-service
+    
 
     gnomeExtensions.unite
   ];
