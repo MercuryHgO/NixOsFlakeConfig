@@ -130,11 +130,19 @@
   };
 
   home-manager.users.bittermann = {
-    programs.kitty.enable = true;
+    programs.kitty = {
+      enable = true;
+      extraConfig = ''
+        background_opacity 0.9
+        dynamic_background_opacity yes
+      '';
+    };
     programs.helix.enable = true;
-
     home.stateVersion = "24.05";
   };
+
+  # Fixes some shit with already existing gtk-3/4.0 configs
+  home-manager.backupFileExtension = "backup";
 
   environment.systemPackages = with pkgs; [
     home-manager
