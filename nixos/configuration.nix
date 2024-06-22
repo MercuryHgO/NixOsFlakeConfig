@@ -12,15 +12,42 @@
 
   stylix = {
     enable = true;
-    image = ./wallpaper.png;
+    image = ./wallpaper.jpg;
     polarity = "dark";
-    base16Scheme = "${pkgs.base16-schemes}/share/themes/gruvbox-material-dark-hard.yaml";
+    # base16Scheme = "${pkgs.base16-schemes}/share/themes/gruvbox-dark-hard.yaml";
+
+    targets.gtk.enable = true;
+
+    base16Scheme = {
+      base00 = "170c04";
+      base01 = "330000";
+      base02 = "2f1f13";
+      base03 = "b36624";
+      base04 = "eab15e";
+      base05 = "ff8400";
+      base06 = "e69532";
+      base07 = "c9bf28";
+      base08 = "bf6300";
+      base09 = "ecb536";
+      base0A = "f1c232";
+      base0B = "b35900";
+      base0C = "eb9c24";
+      base0D = "bb6c3b";
+      base0E = "e65c17";
+      base0F = "c9a005";
+    };
+
     cursor = {
       name = "Adwaita";
       package = pkgs.gnome.adwaita-icon-theme;
     };
   };
 
+  programs.steam = {
+    enable = true;
+    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
+    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+  };
 
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.efi.efiSysMountPoint = "/boot";
@@ -47,6 +74,15 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   time.timeZone = "Europe/Moscow";
+
+  environment.variables = rec {
+    EDITOR = "hx";
+    SCRIPTS = "$HOME/nix/scripts";
+
+    PATH = [
+      "${SCRIPTS}"
+    ];
+  };
 
   services = {
     xserver = {
@@ -95,11 +131,57 @@
     programs.kitty = {
       enable = true;
       extraConfig = ''
-        background_opacity 0.9
+        background_opacity 0.7
         dynamic_background_opacity yes
       '';
     };
-    programs.helix.enable = true;
+
+    programs.helix = {
+      enable = true;
+      settings = {
+        editor = {
+          line-number = "relative";
+
+          lsp.display-messages = true;
+          lsp.display-inlay-hints = true;
+          lsp.enable = true;
+
+          indent-guides = {
+            render = true;
+            character = "┊";
+            skip-levels = 1;
+          };
+        };
+
+       
+      };
+      languages = {
+        language-server = {
+          rust-analyzer = {
+            command = "rust-analyzer";
+            config = {
+              inlayHints.bindingModeHints.enable = false;
+              inlayHints.closingBraceHints.minLines = 10;
+              inlayHints.closureReturnTypeHints.enable = "with_block";
+              inlayHints.discriminantHints.enable = "fieldless";
+              inlayHints.lifetimeElisionHints.enable = "skip_trivial";
+              inlayHints.typeHints.hideClosureInitialization = false;
+            };
+          };
+        };
+
+        language = [{
+          name = "rust";
+          auto-format = false;
+            roots = [
+              "Cargo.toml"
+              "Cargo.lock"
+            ];
+
+        }];
+        
+      };
+    };
     home.stateVersion = "24.05";
   };
 
@@ -134,6 +216,7 @@
     clang-tools
 
     # rust
+    # rustup
     cargo
     rustc
     rust-analyzer
