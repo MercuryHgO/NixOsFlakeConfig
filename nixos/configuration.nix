@@ -170,17 +170,25 @@
           };
         };
 
-        language = [{
+        language = [
+          {
           name = "rust";
           auto-format = false;
             roots = [
               "Cargo.toml"
               "Cargo.lock"
             ];
+          }
 
-        }];
-        
-      };
+          {
+          name = "bash";
+          file-types = [
+            "sh"
+            "bash"
+          ];
+          }
+        ];
+       };
     };
     home.stateVersion = "24.05";
   };
@@ -198,6 +206,8 @@
     helix # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     wget
     git
+    transmission
+    neofetch
 
     corefonts
     onlyoffice-bin
@@ -229,8 +239,13 @@
     dockerfile-language-server-nodejs
     docker-compose-language-service
     
+    # bash
+    nodePackages.bash-language-server
 
+    # gnome shit
     gnomeExtensions.unite
+
+    gnome.gnome-tweaks
   ];
 
   system.stateVersion = "24.05"; # Did you read the comment?
