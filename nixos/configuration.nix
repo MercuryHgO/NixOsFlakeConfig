@@ -79,6 +79,8 @@
     EDITOR = "hx";
     SCRIPTS = "$HOME/nix/scripts";
 
+    # PS1="\n\[\033[1;32m\][\[\e]0;\u@\h\a\]\w]\$\[\033[0m\]";
+
     PATH = [
       "${SCRIPTS}"
     ];
@@ -89,10 +91,13 @@
       enable = true;
       displayManager.gdm.enable = true;
       desktopManager.gnome.enable = true;
+      # videoDrivers = ["nvidia"];
     };
   };
+  # hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
 
   nixpkgs.config.allowUnfree = true;
+  nixpkgs.config.nvidia.acceptLicense = true;
 
   virtualisation.docker.enable = true;
   virtualisation.docker.storageDriver = "btrfs";
@@ -101,6 +106,7 @@
     setSocketVariable = true;
   };
 
+  virtualisation.waydroid.enable = true;
 
 
   environment.gnome.excludePackages = (with pkgs; [
@@ -133,6 +139,7 @@
       extraConfig = ''
         background_opacity 0.7
         dynamic_background_opacity yes
+        hide_window_decorations yes
       '';
     };
 
@@ -226,10 +233,10 @@
     clang-tools
 
     # rust
-    # rustup
-    cargo
-    rustc
-    rust-analyzer
+    rustup
+    # cargo
+    # rustc
+    # rust-analyzer
 
     # yaml
     yaml-language-server
