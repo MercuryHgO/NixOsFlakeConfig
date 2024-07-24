@@ -75,15 +75,15 @@
 
   time.timeZone = "Europe/Moscow";
 
-  environment.variables = rec {
+  environment.sessionVariables = rec {
     EDITOR = "hx";
     SCRIPTS = "$HOME/nix/scripts";
-
-    # PS1="\n\[\033[1;32m\][\[\e]0;\u@\h\a\]\w]\$\[\033[0m\]";
-
     PATH = [
       "${SCRIPTS}"
     ];
+
+    PS1="\n\[\033[1;32m\][\[\e]0;\u@\h\a\]\w]\$\[\033[0m\]";
+    ZHOPA="ZHOPA";
   };
 
   services = {
@@ -196,6 +196,14 @@
           }
         ];
        };
+
+      # themes = {
+      #   stylix = {
+      #     "ui.virtual.inlay-hint" = {
+      #       fg =  "base03";
+      #     };
+      #   };
+      # };
     };
     home.stateVersion = "24.05";
   };
