@@ -9,8 +9,17 @@
         inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    firefox = {
+      url = "github:nix-community/flake-firefox-nightly/master";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        home-manager.follows = "home-manager";
+      };
+      flake = true;
+    };
+    
     stylix = {
-      url = "github:danth/stylix/release-24.05";
+      url = "github:MercuryHgO/stylix/release-24.05";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         home-manager.follows = "home-manager";
@@ -19,7 +28,7 @@
   };
 
    
-  outputs = { self, nixpkgs, stylix, home-manager, ...}@inputs:
+  outputs = { self, nixpkgs, stylix, home-manager, firefox, ...}@inputs:
 
     let 
       system = "x86_64-linux";
@@ -30,6 +39,7 @@
           pkgs-stable = import nixpkgs {
             inherit system;
             config.allowUnfree = true;
+            # overlays = [ moz_overlay ];
           };
           inherit inputs system;
         };

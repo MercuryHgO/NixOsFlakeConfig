@@ -2,13 +2,67 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, lib, pkgs, inputs, ... }:
+{ config, lib, pkgs, inputs, secrets, ... }:
+let
+  systemPackages = import ./system-packages.nix {inherit pkgs inputs;};
 
+  spoof-dpi = pkgs.stdenv.mkDerivation {
+    name = "spoof-dpi";
+    src = pkgs.fetchurl {
+      url = "https://github.com/xvzc/SpoofDPI/releases/download/v0.10.6/spoof-dpi-linux-amd64.tar.gz";
+      sha256 = "sha256-5I0no/w90d56DXgKbakWdNymmkpBYUy5SZnakKgFWSo=";
+    };
+
+    sourceRoot = ".";
+
+    dontConfigure = true;
+    dontBuild = true;
+
+    installPhase = ''
+      install -Dm755 spoof-dpi $out/bin/spoof-dpi
+    '';
+  };
+
+  secrets = import ./secrets.nix;
+in
 {
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
     ];
+  services = {
+
+    openssh = {
+      enable = true;
+      allowSFTP = true;
+      settings = {
+        Macs = [
+        "hmac-sha2-512"
+        "hmac-sha2-256"
+        # "umac-128"  
+        ];
+      };
+    };
+
+
+    xserver = {
+      enable = true;
+      displayManager.gdm.enable = true;
+      desktopManager.gnome.enable = true;
+      # videoDrivers = ["nvidia"];
+    };
+    gnome.gnome-remote-desktop.enable = true;
+
+  };
+  
+  systemd.services = {
+    spoof-dpi = {
+      enable = true;
+      serviceConfig = {
+        ExecStart = "${spoof-dpi}/bin/spoof-dpi";
+      };
+    };
+  };
 
   stylix = {
     enable = true;
@@ -19,7 +73,7 @@
     targets.gtk.enable = true;
 
     base16Scheme = {
-      base00 = "170c04";
+      base00 = "110903";
       base01 = "330000";
       base02 = "2f1f13";
       base03 = "b36624";
@@ -27,14 +81,25 @@
       base05 = "ff8400";
       base06 = "e69532";
       base07 = "c9bf28";
-      base08 = "bf6300";
-      base09 = "ecb536";
-      base0A = "f1c232";
-      base0B = "b35900";
-      base0C = "eb9c24";
-      base0D = "bb6c3b";
-      base0E = "e65c17";
-      base0F = "c9a005";
+      
+
+      # base00 = "2b0700";
+      # base01 = "bd350f";
+      # base02 = "913412";
+      # base03 = "8c5d2b";
+      # base04 = "8f491f";
+      # base05 = "f17755";
+      # base06 = "e8b99b";
+      # base07 = "bd350f";
+
+      base08 = "e06c75";
+      base09 = "d19a66";
+      base0A = "e5c07b";
+      base0B = "98c379";
+      base0C = "56b6c2";
+      base0D = "61afef";
+      base0E = "c678dd";
+      base0F = "be5046";
     };
 
     cursor = {
@@ -48,28 +113,57 @@
     remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
     dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
   };
+  networking = {
+    firewall = {
+      enable = true;
 
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.loader.efi.efiSysMountPoint = "/boot";
-  boot.loader.grub = {
-    enable = true;
-    efiSupport = true;
-    device = "nodev";
-    # efiInstallAsRemovable = true;
-    useOSProber = true;
+      allowedTCPPorts = [ 80 443 9000 22 5900 3390 3389 ];
+      allowedUDPPorts = [ 33221 ];
+
+      allowedUDPPortRanges = [
+        { from = 1716; to = 1764; } # KDE Connect
+        { from = 9000; to = 9020; } # Debug ports
+      ];
+      allowedTCPPortRanges = [
+        { from = 1716; to = 1764; } # KDE Connect
+        { from = 9000; to = 9020; } # Debug ports
+      ];
+    };
+
+    wg-quick.interfaces = {
+      wg0 = {
+        address = [ "10.100.0.3/24" ];
+        dns = [ "8.8.8.8" ];
+        # privateKeyFile = "/home/bittermann/nix/nixos/private";
+        privateKey = secrets.wg-quick.privateKey;
+        peers = [
+          {
+            publicKey = "eEWgilzJBr2z3odHDgKfUAbiT4XlQlFUzIoHscNHZUs=";
+            allowedIPs = [ "0.0.0.0/0" ];
+            endpoint = secrets.wg-quick.vpsIp + ":33221";
+            persistentKeepalive = 25;
+          }
+        ];
+      };
+    };
+    };
+  boot = {
+    loader = {
+      efi = {
+        canTouchEfiVariables = true;
+        efiSysMountPoint = "/boot";
+      };
+      grub = {
+        enable = true;
+        efiSupport = true;
+        device = "nodev";
+        # efiInstallAsRemovable = true;
+        useOSProber = true;
+      };
+    };
+
+    supportedFilesystems = [ "ntfs" ];
   };
-  # boot.loader.grub.extraEntries = ''
-  #   menuentry "Windows" {
-  #     insmod part_gpt
-  #     insmod fat
-  #     insmod chain
-  #     set root=(hd2,gpt2)
-  #     chainloader /boot/EFI/Windows/bootmgfw.efi
-  #   }
-  # '';
-  # # boot.loader.grub.extraFiles = ["/boot/EFI/Windows/bootmgfw.efi"];
-
-  boot.supportedFilesystems = [ "ntfs" ];
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
@@ -81,33 +175,38 @@
     PATH = [
       "${SCRIPTS}"
     ];
-
-    PS1="\n\[\033[1;32m\][\[\e]0;\u@\h\a\]\w]\$\[\033[0m\]";
-    ZHOPA="ZHOPA";
   };
 
-  services = {
-    xserver = {
+  hardware = {
+    nvidia = {
+      package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
+    };
+    pulseaudio = {
       enable = true;
-      displayManager.gdm.enable = true;
-      desktopManager.gnome.enable = true;
-      # videoDrivers = ["nvidia"];
+    };
+    bluetooth = {
+      enable = true;
+      powerOnBoot = true;
     };
   };
-  # hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
 
-  nixpkgs.config.allowUnfree = true;
-  nixpkgs.config.nvidia.acceptLicense = true;
-
-  virtualisation.docker.enable = true;
-  virtualisation.docker.storageDriver = "btrfs";
-  virtualisation.docker.rootless = {
-    enable = true;
-    setSocketVariable = true;
+  nixpkgs = {
+    config = {
+      allowUnfree = true;
+      nvidia.acceptLicense = true;
+    };
   };
 
-  virtualisation.waydroid.enable = true;
-
+  virtualisation = {
+    docker = {
+      enable = true;
+      storageDriver = "btrfs";
+      rootless = {
+        enable = true;
+        setSocketVariable = true;
+      };
+    };
+  };
 
   environment.gnome.excludePackages = (with pkgs; [
     gnome-photos
@@ -131,79 +230,163 @@
   users.users.bittermann = {
     isNormalUser = true;
     extraGroups = [ "wheel" "docker"]; # Enable ‘sudo’ for the user.
+    password = "Panzerkamphwagen";
   };
 
   home-manager.users.bittermann = {
-    programs.kitty = {
-      enable = true;
-      extraConfig = ''
-        background_opacity 0.7
-        dynamic_background_opacity yes
-        hide_window_decorations yes
-      '';
-    };
-
-    programs.helix = {
-      enable = true;
-      settings = {
-        editor = {
-          line-number = "relative";
-
-          lsp.display-messages = true;
-          lsp.display-inlay-hints = true;
-          lsp.enable = true;
-
-          indent-guides = {
-            render = true;
-            character = "┊";
-            skip-levels = 1;
-          };
+    xdg = {
+      desktopEntries = {
+        firefox = {
+          name = "Firefox";
+          genericName = "Web Browser";
+          exec = "firefox -P default %U";
+          terminal = false;
+          categories = [ "Application" "Network" "WebBrowser" ];
+          mimeType = [ "text/html" "text/xml" ];
         };
-
-       
       };
-      languages = {
-        language-server = {
-          rust-analyzer = {
-            command = "rust-analyzer";
-            config = {
-              inlayHints.bindingModeHints.enable = false;
-              inlayHints.closingBraceHints.minLines = 10;
-              inlayHints.closureReturnTypeHints.enable = "with_block";
-              inlayHints.discriminantHints.enable = "fieldless";
-              inlayHints.lifetimeElisionHints.enable = "skip_trivial";
-              inlayHints.typeHints.hideClosureInitialization = false;
+    };
+  programs = {
+
+      firefox = {
+        enable = true;
+      };
+
+      kitty = {
+        enable = true;
+        extraConfig = ''
+          background_opacity 0.7
+          dynamic_background_opacity yes
+          hide_window_decorations yes
+        '';
+      };
+
+      tmux = {
+        enable = true;
+        clock24 = false;
+        extraConfig = ''
+          set-option -g prefix C-a
+          unbind C-b
+          set -sg escape-time 0
+        '';
+      };
+
+      helix = {
+        enable = true;
+        settings = {
+          editor = {
+            line-number = "relative";
+            lsp = {
+              display-messages = true;
+              display-inlay-hints = true;
+              enable = true;
+            };
+
+            indent-guides = {
+              render = true;
+              character = "┊";
+              skip-levels = 1;
             };
           };
         };
+        languages = {
+          language-server = {
+            ccls = {
+              command = "ccls";
+            };
+            nixd = {
+              command = "nixd";
+            };
+            nil = {
+              command = "nil";
+            };
+            typescript-language-server = {
+              command = "typescript-language-server";
+            };
+            emmet-lsp = {
+              command = "emmet-language-server";
+              args = ["--stdio"];
+            };
+            deno = {
+              command = "deno";
+              args = ["lsp"];
+            };
+            rust-analyzer = {
+              command = "rust-analyzer";
+              config = {
+                inlayHints = {
+                  bindingModeHints.enable = false;
+                  closingBraceHints.minLines = 10;
+                  closureReturnTypeHints.enable = "with_block";
+                  discriminantHints.enable = "fieldless";
+                  lifetimeElisionHints.enable = "skip_trivial";
+                  typeHints.hideClosureInitialization = false;
+                };
+              };
+            };
+          };
 
-        language = [
-          {
-          name = "rust";
-          auto-format = false;
-            roots = [
-              "Cargo.toml"
-              "Cargo.lock"
-            ];
-          }
-
-          {
-          name = "bash";
-          file-types = [
-            "sh"
-            "bash"
+          grammar = [
+            {
+              name = "tsx";
+              source = {
+                 git = "https://github.com/tree-sitter/tree-sitter-typescript";
+                 rev = "b1bf4825d9eaa0f3bdeb1e52f099533328acfbdf";
+                 subpath = "tsx";
+              };
+            }
           ];
-          }
-        ];
-       };
+    
+          language = [
+            {
+              name = "tsx";
+               scope = "source.tsx";
+               injection-regex = "(tsx)";
+               language-id = "typescriptreact";
+               file-types = ["tsx"];
+               comment-token = "//";
+               block-comment-tokens = { start = "/*"; end = "*/"; };
+               language-servers = [ "typescript-language-server" "emmet-lsp" "deno"];
+               indent = { tab-width = 2; unit = "  "; };
+            }
+            {
+              name = "rust";
+              auto-format = false;
+              roots = [
+                "Cargo.toml"
+                "Cargo.lock"
+              ];
+            }
 
-      # themes = {
-      #   stylix = {
-      #     "ui.virtual.inlay-hint" = {
-      #       fg =  "base03";
-      #     };
-      #   };
-      # };
+            {
+              name = "bash";
+              file-types = [
+                "sh"
+                "bash"
+              ];
+            }
+
+            {
+              name = "cpp";
+              file-types = [
+                "cpp"
+                "c"
+                "h"
+                "hpp"
+              ];
+            }
+
+            {
+              name = "nix";
+              language-servers = [
+                "nixd"
+                "nil"
+              ];
+            }
+          ];
+         };
+
+      };
     };
     home.stateVersion = "24.05";
   };
@@ -211,57 +394,7 @@
   # Fixes some shit with already existing gtk-3/4.0 configs
   home-manager.backupFileExtension = "backup";
 
-  environment.systemPackages = with pkgs; [
-    home-manager
-
-
-    base16-schemes
-
-    kitty
-    helix # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-    wget
-    git
-    transmission
-    neofetch
-
-    corefonts
-    onlyoffice-bin
-
-    firefox
-    discord
-    telegram-desktop
-
-    tauon
-
-    # markdown
-    marksman
-    
-    # cpp
-    clang
-    clang-tools
-
-    # rust
-    rustup
-    # cargo
-    # rustc
-    # rust-analyzer
-
-    # yaml
-    yaml-language-server
-
-    # docker
-    docker-compose
-    dockerfile-language-server-nodejs
-    docker-compose-language-service
-    
-    # bash
-    nodePackages.bash-language-server
-
-    # gnome shit
-    gnomeExtensions.unite
-
-    gnome.gnome-tweaks
-  ];
+  environment.systemPackages = systemPackages;
 
   system.stateVersion = "24.05"; # Did you read the comment?
 }
