@@ -9,15 +9,6 @@
         inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    firefox = {
-      url = "github:nix-community/flake-firefox-nightly/master";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        home-manager.follows = "home-manager";
-      };
-      flake = true;
-    };
-    
     stylix = {
       url = "github:MercuryHgO/stylix/release-24.05";
       inputs = {
