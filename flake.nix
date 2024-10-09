@@ -19,7 +19,7 @@
   };
 
    
-  outputs = { self, nixpkgs, stylix, home-manager, firefox, ...}@inputs:
+  outputs = { self, nixpkgs, stylix, home-manager, ...}@inputs:
 
     let 
       system = "x86_64-linux";
