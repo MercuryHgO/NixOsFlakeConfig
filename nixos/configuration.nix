@@ -5,24 +5,6 @@
 { config, lib, pkgs, inputs, secrets, ... }:
 let
   systemPackages = import ./system-packages.nix {inherit pkgs inputs;};
-
-  spoof-dpi = pkgs.stdenv.mkDerivation {
-    name = "spoof-dpi";
-    src = pkgs.fetchurl {
-      url = "https://github.com/xvzc/SpoofDPI/releases/download/v0.10.6/spoof-dpi-linux-amd64.tar.gz";
-      sha256 = "sha256-5I0no/w90d56DXgKbakWdNymmkpBYUy5SZnakKgFWSo=";
-    };
-
-    sourceRoot = ".";
-
-    dontConfigure = true;
-    dontBuild = true;
-
-    installPhase = ''
-      install -Dm755 spoof-dpi $out/bin/spoof-dpi
-    '';
-  };
-
   secrets = import ./secrets.nix;
 in
 {
@@ -31,6 +13,12 @@ in
       ./hardware-configuration.nix
     ];
   services = {
+    pipewire = {
+      enable = true;
+      alsa.enable = true;
+      alsa.support32Bit = true;
+      pulse.enable = true;
+    };
 
     openssh = {
       enable = true;
@@ -47,28 +35,42 @@ in
 
     xserver = {
       enable = true;
-      displayManager.gdm.enable = true;
+      displayManager.gdm = {
+        enable = true;
+        wayland = false;
+      };
+      # displayManager.sddm = {
+      #   enable = true;
+      #   # wayland = false;
+      # };
       desktopManager.gnome.enable = true;
-      # videoDrivers = ["nvidia"];
+      # desktopManager.kde5.enable = true;
+      videoDrivers = ["nvidia"];
     };
     gnome.gnome-remote-desktop.enable = true;
 
   };
   
-  systemd.services = {
-    spoof-dpi = {
-      enable = true;
-      serviceConfig = {
-        ExecStart = "${spoof-dpi}/bin/spoof-dpi";
-      };
+  fileSystems = {
+    "/mnt" = {
+      device = "/dev/disk/by-uuid/38ce5e64-fe03-49cb-8c74-703ffecf24b0";
+      fsType = "ext4";
     };
   };
+
+  # systemd.services = {
+  #   spoof-dpi = {
+  #     enable = true;
+  #     serviceConfig = {
+  #       ExecStart = "${spoof-dpi}/bin/spoofdpi";
+  #     };
+  #   };
+  # };
 
   stylix = {
     enable = true;
     image = ./wallpaper.jpg;
     polarity = "dark";
-    # base16Scheme = "${pkgs.base16-schemes}/share/themes/gruvbox-dark-hard.yaml";
 
     targets.gtk.enable = true;
 
@@ -104,21 +106,16 @@ in
 
     cursor = {
       name = "Adwaita";
-      package = pkgs.gnome.adwaita-icon-theme;
+      package = pkgs.adwaita-icon-theme;
     };
   };
 
-  programs.steam = {
-    enable = true;
-    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
-    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
-  };
   networking = {
     firewall = {
       enable = true;
 
       allowedTCPPorts = [ 80 443 9000 22 5900 3390 3389 ];
-      allowedUDPPorts = [ 33221 ];
+      allowedUDPPorts = [ 33221 3390 3389 ];
 
       allowedUDPPortRanges = [
         { from = 1716; to = 1764; } # KDE Connect
@@ -144,9 +141,22 @@ in
             persistentKeepalive = 25;
           }
         ];
+
+        # postUp = ''
+        #   ${pkgs.iptables}/bin/iptables -A INPUT -s 195.211.245.50 -j ACCEPT
+        #   ${pkgs.iptables}/bin/iptables -A INPUT -s 10.100.0.0/24 -j ACCEPT
+
+        #   # ${pkgs.iptables}/bin/iptables -A INPUT -s 195.211.245.50 -j DROP
+        # '';
+        # postDown = ''
+        #   ${pkgs.iptables}/bin/iptables -D INPUT -s 195.211.245.50 -j ACCEPT
+        #   ${pkgs.iptables}/bin/iptables -D INPUT -s 10.100.0.0/24 -j ACCEPT
+
+        #   # ${pkgs.iptables}/bin/iptables -D INPUT -s 195.211.245.50 -j DROP
+        # '';
       };
     };
-    };
+  };
   boot = {
     loader = {
       efi = {
@@ -179,9 +189,15 @@ in
 
   hardware = {
     nvidia = {
+      modesetting.enable = true;
       package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
+      nvidiaSettings = true;
+      # powerManagement.enable = true;
     };
     pulseaudio = {
+      enable = false;
+    };
+    graphics = {
       enable = true;
     };
     bluetooth = {
@@ -198,6 +214,9 @@ in
   };
 
   virtualisation = {
+    libvirtd = {
+      enable = true;
+    };
     docker = {
       enable = true;
       storageDriver = "btrfs";
@@ -212,7 +231,7 @@ in
     gnome-photos
     gnome-tour
     gedit
-  ]) ++ (with pkgs.gnome; [
+  ]) ++ (with pkgs; [
     gnome-music
     gnome-terminal
     epiphany
@@ -230,23 +249,10 @@ in
   users.users.bittermann = {
     isNormalUser = true;
     extraGroups = [ "wheel" "docker"]; # Enable ‘sudo’ for the user.
-    password = "Panzerkamphwagen";
   };
 
   home-manager.users.bittermann = {
-    xdg = {
-      desktopEntries = {
-        firefox = {
-          name = "Firefox";
-          genericName = "Web Browser";
-          exec = "firefox -P default %U";
-          terminal = false;
-          categories = [ "Application" "Network" "WebBrowser" ];
-          mimeType = [ "text/html" "text/xml" ];
-        };
-      };
-    };
-  programs = {
+    programs = {
 
       firefox = {
         enable = true;
@@ -268,6 +274,7 @@ in
           set-option -g prefix C-a
           unbind C-b
           set -sg escape-time 0
+          set-option -g default-shell /run/current-system/sw/bin/bash
         '';
       };
 
@@ -310,6 +317,20 @@ in
             deno = {
               command = "deno";
               args = ["lsp"];
+              config.deno = {
+                enable = true;
+                lint = true;
+                inlayHints = {
+                  parameterNames.enabled = "all";
+                  parameterTypes.enabled = true;
+                  variableTypes.enabled = true;
+                  propertyDeclarationTypes.enabled  = true;
+                  functionLikeReturnTypes.enabled = true;
+                  enumMemberValues.enabled = true;
+                };
+                suggest.imports.hosts = { "https://deno.land" = true; };
+                importMap = "deno.json";
+              };
             };
             rust-analyzer = {
               command = "rust-analyzer";
@@ -335,6 +356,13 @@ in
                  subpath = "tsx";
               };
             }
+            {
+              name = "dockerfile";
+              source = {
+                git = "https://github.com/camdencheek/tree-sitter-dockerfile";
+                rev = "087daa20438a6cc01fa5e6fe6906d77c869d19fe";
+              };
+            }
           ];
     
           language = [
@@ -348,6 +376,11 @@ in
                block-comment-tokens = { start = "/*"; end = "*/"; };
                language-servers = [ "typescript-language-server" "emmet-lsp" "deno"];
                indent = { tab-width = 2; unit = "  "; };
+            }
+            {
+              name = "typescript";
+              file-types = ["ts"];
+              language-servers = [ "deno" ];
             }
             {
               name = "rust";
